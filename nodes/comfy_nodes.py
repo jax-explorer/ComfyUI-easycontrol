@@ -21,6 +21,7 @@ class EasyControlLoadFlux:
         return {
             "required": {
                 "hf_token": ("STRING", {"default": "", "multiline": True}),
+                "device": (["mps", "cuda", "cpu"], {"default": "mps"}),
             },
         }
     
@@ -28,13 +29,12 @@ class EasyControlLoadFlux:
     FUNCTION = "load_model"
     CATEGORY = "EasyControl"
 
-    def load_model(self, hf_token):
+    def load_model(self, hf_token, device):
         login(token=hf_token)
         base_path = "black-forest-labs/FLUX.1-dev"
-        device = "cuda" if torch.cuda.is_available() else "cpu"
         cache_dir = folder_paths.get_folder_paths("diffusers")[0]
         print(cache_dir)
-        pipe = FluxPipeline.from_pretrained(base_path, torch_dtype=torch.bfloat16, device=device, cache_dir=cache_dir)
+        pipe = FluxPipeline.from_pretrained(base_path, torch_dtype=torch.bfloat16, cache_dir=cache_dir)
         transformer = FluxTransformer2DModel.from_pretrained(
             base_path, 
             subfolder="transformer",
@@ -65,7 +65,9 @@ class EasyControlLoadLora:
 
     def load_lora(self, transformer, lora_name, lora_weight, cond_size):
         lora_path = folder_paths.get_full_path("loras", lora_name)
-        set_single_lora(transformer, lora_path, lora_weights=[lora_weight], cond_size=cond_size)
+        # Get device from transformer
+        device = next(transformer.parameters()).device.type
+        set_single_lora(transformer, lora_path, lora_weights=[lora_weight], cond_size=cond_size, device=device)
         return (transformer,)
 
 
@@ -91,11 +93,15 @@ class EasyControlLoadMultiLora:
         lora_path1 = folder_paths.get_full_path("loras", lora_name1)
         lora_path2 = folder_paths.get_full_path("loras", lora_name2)
         
+        # Get device from transformer
+        device = next(transformer.parameters()).device.type
+        
         set_multi_lora(
             transformer, 
             [lora_path1, lora_path2], 
             lora_weights=[[lora_weight1], [lora_weight2]], 
-            cond_size=cond_size
+            cond_size=cond_size,
+            device=device
         )
         return (transformer,)
 
@@ -216,4 +222,3 @@ class EasyControlGenerate:
             attn_processor.bank_kv.clear()
         
         return (image,)
-
