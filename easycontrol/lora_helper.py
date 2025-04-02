@@ -4,8 +4,6 @@ import re
 import torch
 from .layers_cache import MultiDoubleStreamBlockLoraProcessor, MultiSingleStreamBlockLoraProcessor
 
-device = "cuda"
-
 def load_safetensors(path):
     tensors = {}
     with safe_open(path, framework="pt", device="cpu") as f:
@@ -28,7 +26,7 @@ def load_checkpoint(local_path):
             checkpoint = torch.load(local_path, map_location='cpu')
     return checkpoint
 
-def update_model_with_lora(checkpoint, lora_weights, transformer, cond_size):
+def update_model_with_lora(checkpoint, lora_weights, transformer, cond_size, device):
         number = len(lora_weights)
         ranks = [get_lora_rank(checkpoint) for _ in range(number)]
         lora_attn_procs = {}
@@ -93,7 +91,7 @@ def update_model_with_lora(checkpoint, lora_weights, transformer, cond_size):
         transformer.set_attn_processor(lora_attn_procs)
         
 
-def update_model_with_multi_lora(checkpoints, lora_weights, transformer, cond_size):
+def update_model_with_multi_lora(checkpoints, lora_weights, transformer, cond_size, device):
         ck_number = len(checkpoints)
         cond_lora_number = [len(ls) for ls in lora_weights]
         cond_number = sum(cond_lora_number)
@@ -173,13 +171,13 @@ def update_model_with_multi_lora(checkpoints, lora_weights, transformer, cond_si
         transformer.set_attn_processor(lora_attn_procs)
 
 
-def set_single_lora(transformer, local_path, lora_weights=[], cond_size=512):
+def set_single_lora(transformer, local_path, lora_weights=[], cond_size=512, device=None):
     checkpoint = load_checkpoint(local_path)
-    update_model_with_lora(checkpoint, lora_weights, transformer, cond_size)
+    update_model_with_lora(checkpoint, lora_weights, transformer, cond_size, device)
    
-def set_multi_lora(transformer, local_paths, lora_weights=[[]], cond_size=512):
+def set_multi_lora(transformer, local_paths, lora_weights=[[]], cond_size=512, device=None):
     checkpoints = [load_checkpoint(local_path) for local_path in local_paths]
-    update_model_with_multi_lora(checkpoints, lora_weights, transformer, cond_size)
+    update_model_with_multi_lora(checkpoints, lora_weights, transformer, cond_size, device)
 
 def unset_lora(transformer):
     lora_attn_procs = {}
